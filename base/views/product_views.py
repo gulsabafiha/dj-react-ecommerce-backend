@@ -1,3 +1,4 @@
+from itertools import product
 from math import prod
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
@@ -5,9 +6,7 @@ from base.models import *
 from base.serializers import *
 from rest_framework.permissions import IsAdminUser ,IsAuthenticated
 from rest_framework import status
-
-
-
+from django.core.paginator import Paginator,EmptyPage,PageNotAnInteger
 
 
 @api_view(['GET'])
@@ -16,10 +15,33 @@ def getProducts(request):
     if query ==None:
         query=''
     products=Product.objects.filter(name__icontains=query)
+
+    page=request.query_params.get('page')
+    paginator=Paginator(products,5)
+
+    try:
+        products=paginator.page(page)
+    except PageNotAnInteger:
+        products=paginator.page(1)
+    except EmptyPage:
+        products=paginator.page(paginator.num_pages)
+
+    if page==None:
+        page=1
+
+    page=int(page)
+    serializer=ProductSerializer(products,many=True)
+    return Response({'products':serializer.data,'page':page,'pages': paginator.num_pages})
+
+
+@api_view(['GET'])
+def getTopProducts(request):
+    products=Product.objects.filter(rating__gte=4).order_by('-rating')[0:5] 
+    #it gives o to 5 produts here orderby rating.- rating means to order by 5,6
     serializer=ProductSerializer(products,many=True)
     return Response(serializer.data)
 
-
+    
 @api_view(['GET'])
 def getProduct(request,pk):
    product=Product.objects.get(_id=pk)
